@@ -14,30 +14,30 @@ io.on("connection", (socket) => {
   console.log("A user connected");
 
   function emitParticipantsUpdated() {
-    if (!io.sockets.adapter.rooms.get(socket.room)) {
-      // Room doesn't exist anymore. No need to update participants.
+    console.log("emitting: participants-updated");
+
+    const roomSize = getRoomSize(socket.room);
+
+    if (!roomSize || roomSize === 0) {
       return;
     }
 
     io.to(socket.room).emit("participants-updated", {
-      roomSize: io.sockets.adapter.rooms.get(socket.room).size,
+      roomSize: getRoomSize(socket.room),
     });
   }
 
-  socket.on("create-room", (roomName) => {
+  socket.on("create-voting", (roomName) => {
     console.log("creating room: " + roomName);
     socket.join(roomName);
     socket.room = roomName;
+    socket.host = socket.id;
 
     emitParticipantsUpdated();
   });
 
-  socket.on("join-room", (roomName) => {
+  socket.on("join-voting", (roomName) => {
     console.log("joining room: " + roomName);
-
-    if (!io.sockets.adapter.rooms.get(roomName)) {
-      //handle error
-    }
 
     socket.join(roomName);
     socket.room = roomName;
@@ -45,8 +45,17 @@ io.on("connection", (socket) => {
     emitParticipantsUpdated();
   });
 
-  socket.broadcast.emit("user connected", {
-    userID: socket.id,
+  socket.on("start-voting", (data) => {
+    io.to(socket.room).emit("voting-started", data);
+  });
+
+  socket.on("add-movies", (movieIds) => {
+    console.log("add movies received");
+    io.to(socket.room).emit("movies-added", movieIds);
+  });
+
+  socket.on("remove-movies", (movieIds) => {
+    io.to(socket.room).emit("movies-removed", movieIds);
   });
 
   // Handle disconnection
@@ -62,3 +71,11 @@ const PORT = process.env.PORT || 3001;
 server.listen(PORT, () => {
   console.log(`Server is running on http://localhost:${PORT}`);
 });
+
+function getRoomSize(roomName) {
+  if (!io.sockets.adapter.rooms.get(roomName)) {
+    return;
+  }
+
+  return io.sockets.adapter.rooms.get(roomName).size;
+}
