@@ -4,28 +4,42 @@ const socketIo = require("socket.io");
 
 const app = express();
 const server = http.createServer(app);
+const PORT = process.env.PORT || 3001;
+
+server.listen(PORT, () => {
+  console.log(`Server is running on http://localhost:${PORT}`);
+});
+
 const io = socketIo(server, {
   cors: {
     origin: "*",
   },
 });
 
+function getRoomSize(roomName) {
+  if (!io.sockets.adapter.rooms.get(roomName)) {
+    return;
+  }
+
+  return io.sockets.adapter.rooms.get(roomName).size;
+}
+
+function emitParticipantsUpdated(socket) {
+  console.log("emitting: participants-updated");
+
+  const roomSize = getRoomSize(socket.room);
+
+  if (!roomSize || roomSize === 0) {
+    return;
+  }
+
+  io.to(socket.room).emit("participants-updated", {
+    roomSize: getRoomSize(socket.room),
+  });
+}
+
 io.on("connection", (socket) => {
   console.log("A user connected");
-
-  function emitParticipantsUpdated() {
-    console.log("emitting: participants-updated");
-
-    const roomSize = getRoomSize(socket.room);
-
-    if (!roomSize || roomSize === 0) {
-      return;
-    }
-
-    io.to(socket.room).emit("participants-updated", {
-      roomSize: getRoomSize(socket.room),
-    });
-  }
 
   socket.on("create-voting", (roomName) => {
     console.log("creating room: " + roomName);
@@ -33,7 +47,7 @@ io.on("connection", (socket) => {
     socket.room = roomName;
     socket.host = socket.id;
 
-    emitParticipantsUpdated();
+    emitParticipantsUpdated(socket);
   });
 
   socket.on("join-voting", (roomName) => {
@@ -42,7 +56,7 @@ io.on("connection", (socket) => {
     socket.join(roomName);
     socket.room = roomName;
 
-    emitParticipantsUpdated();
+    emitParticipantsUpdated(socket);
   });
 
   socket.on("start-voting", (data) => {
@@ -62,20 +76,7 @@ io.on("connection", (socket) => {
   socket.on("disconnect", () => {
     console.log("User disconnected");
 
-    emitParticipantsUpdated();
+    emitParticipantsUpdated(socket);
   });
 });
 
-const PORT = process.env.PORT || 3001;
-
-server.listen(PORT, () => {
-  console.log(`Server is running on http://localhost:${PORT}`);
-});
-
-function getRoomSize(roomName) {
-  if (!io.sockets.adapter.rooms.get(roomName)) {
-    return;
-  }
-
-  return io.sockets.adapter.rooms.get(roomName).size;
-}
