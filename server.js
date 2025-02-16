@@ -58,6 +58,15 @@ io.on("connection", (socket) => {
     io.to(socket.room).emit("movies-removed", movieIds);
   });
 
+  socket.on("cast-vote", (orderedMovieIds) => {
+    console.log("cast vote");
+    io.to(socket.room).emit("vote-casted", orderedMovieIds);
+  });
+
+  socket.on("withdraw-vote", (vote) => {
+    io.to(socket.room).emit("vote-withdrawn", vote);
+  });
+
   // Handle disconnection
   socket.on("disconnect", () => {
     console.log("User disconnected");
